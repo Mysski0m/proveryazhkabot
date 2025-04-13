@@ -1,6 +1,6 @@
-from functions import (start, target_menu, support_menu, main_menu, send_test,
-                       test_answer, contact, forward_message_to_or_for_teacher,
-                       get_bank)
+from functions import (start, target_menu, main_menu, send_test,
+                       test_answer, contact_for_check, forward_message_to_or_for_teacher,
+                       get_bank, contact_to_support, contact_teacher)
 from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
 import json
@@ -27,18 +27,8 @@ def main() -> None:
     dp.add_handler(MessageHandler(Filters.regex('^(Цели)$'), target_menu))
     dp.add_handler(MessageHandler(Filters.regex('^(Банк)$'), get_bank))
     dp.add_handler(MessageHandler(Filters.regex('^(Главное меню)$'), main_menu))
-    dp.add_handler(MessageHandler(Filters.regex('^(Отправить работу)$'), contact))
-    dp.add_handler(MessageHandler(Filters.regex('^(Поддержка)$'), support_menu))
-
-
-    # # Добавляем фильтры для кнопок ОГЭ
-    # for i in range(1, 13):
-    #     dp.add_handler(MessageHandler(Filters.regex(f'^№{i}$'), send_test))
-
-    # # Добавляем фильтры для кнопок ЕГЭ
-    # for i in range(1, 28):
-    #     dp.add_handler(MessageHandler(Filters.regex(f'^№{i}$'), send_test))
-
+    dp.add_handler(MessageHandler(Filters.regex('^(Отправить работу)$'), contact_for_check))
+    dp.add_handler(MessageHandler(Filters.regex('^(Поддержка)$'), contact_to_support))
     dp.add_handler(CallbackQueryHandler(test_answer))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, forward_message_to_or_for_teacher))
     dp.add_handler(MessageHandler(Filters.photo & ~Filters.command, forward_message_to_or_for_teacher))

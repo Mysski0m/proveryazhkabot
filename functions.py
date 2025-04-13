@@ -16,10 +16,6 @@ List_Of_Students_Statistics = {}
 
 # Стартовое меню
 def start(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его.")
-    #     return
     if update.message.chat_id not in List_Of_Students_Statistics:
         List_Of_Students_Statistics[update.message.chat_id] = 0
     keyboard = [
@@ -32,11 +28,6 @@ def start(update: Update, context: CallbackContext) -> None:
 
 # Обработчик для целей
 def target_menu(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его.")
-    #     return
-
     context.user_data['current_menu'] = "Цели"
     context.user_data['awaiting_contact_message'] = False
     keyboard = [
@@ -44,39 +35,280 @@ def target_menu(update: Update, context: CallbackContext) -> None:
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     update.message.reply_text('Цели:', reply_markup=reply_markup)
+#! -> добавить меняющийся текст целей
     update.message.reply_text('Вот список текущих целей:\n бебра\n бебра', reply_markup=reply_markup)
 
 # Обработчик для поддержки
-def support_menu(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его")
-    #     return
-
-    context.user_data['current_menu'] = "Поддержка"
-    context.user_data['awaiting_contact_message'] = False
-    keyboard = [
-        ['Главное меню']
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    update.message.reply_text('Поддержка:', reply_markup=reply_markup)
+# def support_menu(update: Update, context: CallbackContext) -> None:
+#     if str(update.message.chat_id) == str(MY_CHAT_ID):
+#         contact_support(update, context)
+#     else:
+#         context.user_data['current_menu'] = None
+#         context.user_data['awaiting_contact_message'] = True
+#         update.message.reply_text('Введите сообщение или загрузите фото, которое вы хотите отправить в поддержку:')
 
 # Возвращение в главное меню
 def main_menu(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его")
-    #     return
-
     context.user_data['awaiting_contact_message'] = False
     start(update, context)
 
+# обработчик команды Contact to support
+def contact_to_support(update: Update, context: CallbackContext) -> None:
+    if str(update.message.chat_id) == str(MY_CHAT_ID):
+        contact_support(update, context)
+    else:
+        context.user_data['current_menu'] = None
+        context.user_data['awaiting_contact_message'] = True
+        update.message.reply_text('Введите сообщение или загрузите фото, которое вы хотите отправить в поддержку:')
+
+# отдельный обработчик для поддержки
+def contact_support(update: Update, context: CallbackContext) -> None:
+    context.user_data['current_menu'] = None
+    context.user_data['awaiting_contact_message'] = True
+    if len(List_Of_Students_Answers) == 0:
+        update.message.reply_text("Пока нету доступных сообщений (для поддержки)")
+        answer_id = -1
+        return
+    update.message.reply_text(f'Всего доступно сообщений (для поддержки): {len(List_Of_Students_Answers)}. \n Для проверки какого-то из них, напишите номер интересующей посылки.')
+    list_of_answers = ""
+    cnt = 1
+    for key, value in List_Of_Students_Answers.items():
+        list_of_answers += f'{cnt}. '
+        list_of_answers += List_Of_Students_Answers[key][:20] + "..."
+        list_of_answers += "\n"
+        cnt += 1
+    update.message.reply_text(list_of_answers)
+
+# Обработчик отправки сообщения поддержке
+def forward_message_to_or_for_support(update: Update, context: CallbackContext) -> None:
+    if context.user_data.get('awaiting_contact_message', False):
+        if str(update.message.chat_id) == MY_CHAT_ID:
+            if update.message.text:
+                user_message = update.message.text
+                cnt = 1
+                global answer_id
+                answer_id = -1
+                for key, value in List_Of_Students_Answers.items():
+                    if cnt == int(user_message):
+                        answer_id = key
+                        break
+                    cnt += 1
+                update.message.reply_text(f'Ответ ученика(для поддержки): \n\n{List_Of_Students_Answers[answer_id]}')
+                update.message.reply_text("Напишите ответ или пришлите фото ответа")
+                context.user_data['awaiting_teacher_answer'] = True
+
+            context.user_data['awaiting_contact_message'] = False
+        else:
+            if update.message.text:
+                user_message = update.message.text
+                context.bot.send_message(
+                    chat_id=MY_CHAT_ID,
+                    text=f"Новое сообщение(для поддержки): {user_message[:20]}..."
+                )
+                List_Of_Students_Answers[update.message.chat_id] = user_message
+                update.message.reply_text('Ваше сообщение было успешно отправлено в поддержку.')
+            elif update.message.photo:
+                photo_file_id = update.message.photo[-1].file_id
+                photo_caption = update.message.caption if update.message.caption else ""
+                context.bot.send_photo(
+                    chat_id=MY_CHAT_ID,
+                    photo=photo_file_id,
+                    caption=f"Новое фото(для поддержки): {photo_caption}"
+                )
+                List_Of_Students_Answers[update.message.chat_id] = "Фотография"
+                update.message.reply_text('Ваше фото было успешно отправлено в поддержку.')
+
+            context.user_data['awaiting_contact_message'] = False
+    else:
+        if context.user_data.get("input_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("awaiting_teacher_answer", False):
+            message_for_student(update, context)
+        elif context.user_data.get("text_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("multichoice_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("current_menu") in ["ОГЭ", "ЕГЭ"]:
+            send_test(update, context)
+        else:
+            update.message.reply_text(
+                "Сообщение не было отправлено в поддержку и не является командой для выполнения теста."
+            )
+
+# Ответ ученику на его посылку
+def message_for_student_after_support(update: Update, context: CallbackContext) -> None:
+
+    if update.message.text:
+        user_message = update.message.text
+        context.bot.send_message(
+            chat_id=answer_id,
+            text=f"Новый ответ от поддержки:\n {user_message}"
+        )
+    elif update.message.photo:
+        photo_file_id = update.message.photo[-1].file_id
+        photo_caption = update.message.caption if update.message.caption else ""
+        context.bot.send_photo(
+            chat_id=answer_id,
+            photo=photo_file_id,
+            caption=f"Новый ответ от поддержки:\n {photo_caption}"
+        )
+
+    List_Of_Students_Answers.pop(answer_id)
+    update.message.reply_text('Ваше сообщение было успешно отправлено в поддержку.')
+
+
+# Обработчик команды Contact
+def contact_for_check(update: Update, context: CallbackContext) -> None:
+    if str(update.message.chat_id) == str(MY_CHAT_ID):
+        contact_teacher(update, context)
+    else:
+        context.user_data['current_menu'] = None
+        context.user_data['awaiting_contact_message'] = True
+        update.message.reply_text('Введите сообщение или загрузите фото, которое вы хотите отправить на проверку:')
+
+# Отдельный обработчик Contact для проверки
+def contact_teacher(update: Update, context: CallbackContext) -> None:
+    context.user_data['current_menu'] = None
+    context.user_data['awaiting_contact_message'] = True
+    if len(List_Of_Students_Answers) == 0:
+        update.message.reply_text("Пока нету доступных посылок (для проверки)")
+        answer_id = -1
+        return
+    update.message.reply_text(f'Всего доступно посылок (для проверки): {len(List_Of_Students_Answers)}. \n Для проверки какого-то из них, напишите номер интересующей посылки.')
+    list_of_answers = ""
+    cnt = 1
+    for key, value in List_Of_Students_Answers.items():
+        list_of_answers += f'{cnt}. '
+        list_of_answers += List_Of_Students_Answers[key][:20] + "..."
+        list_of_answers += "\n"
+        cnt += 1
+    update.message.reply_text(list_of_answers)
+
+# Обработчик отправки сообщения учителю
+def forward_message_to_or_for_teacher(update: Update, context: CallbackContext) -> None:
+    if context.user_data.get('awaiting_contact_message', False):
+        if str(update.message.chat_id) == MY_CHAT_ID:
+            if update.message.text:
+                user_message = update.message.text
+                cnt = 1
+                global answer_id
+                answer_id = -1
+                for key, value in List_Of_Students_Answers.items():
+                    if cnt == int(user_message):
+                        answer_id = key
+                        break
+                    cnt += 1
+                update.message.reply_text(f'Ответ ученика(для проверки): \n\n{List_Of_Students_Answers[answer_id]}')
+                update.message.reply_text("Напишите ответ или пришлите фото ответа")
+                context.user_data['awaiting_teacher_answer'] = True
+
+            context.user_data['awaiting_contact_message'] = False
+        else:
+            if update.message.text:
+                user_message = update.message.text
+                context.bot.send_message(
+                    chat_id=MY_CHAT_ID,
+                    text=f"Новое сообщение(для проверки): {user_message[:20]}..."
+                )
+                List_Of_Students_Answers[update.message.chat_id] = user_message
+                update.message.reply_text('Ваше сообщение было успешно отправлено на проверку.')
+            elif update.message.photo:
+                photo_file_id = update.message.photo[-1].file_id
+                photo_caption = update.message.caption if update.message.caption else ""
+                context.bot.send_photo(
+                    chat_id=MY_CHAT_ID,
+                    photo=photo_file_id,
+                    caption=f"Новое фото(для проверки): {photo_caption}"
+                )
+                List_Of_Students_Answers[update.message.chat_id] = "Фотография"
+                update.message.reply_text('Ваше фото было успешно отправлено на проверку.')
+
+            context.user_data['awaiting_contact_message'] = False
+    else:
+        if context.user_data.get("input_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("awaiting_teacher_answer", False):
+            message_for_student(update, context)
+        elif context.user_data.get("text_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("multichoice_question_active"):
+            check_input(update, context)
+        elif context.user_data.get("current_menu") in ["ОГЭ", "ЕГЭ"]:
+            send_test(update, context)
+        else:
+            update.message.reply_text(
+                "Сообщение не было отправлено на проверку и не является командой для выполнения теста."
+            )
+
+# Ответ ученику на его посылку
+def message_for_student(update: Update, context: CallbackContext) -> None:
+
+    if update.message.text:
+        user_message = update.message.text
+        context.bot.send_message(
+            chat_id=answer_id,
+            text=f"Новый ответ от проверки:\n {user_message}"
+        )
+    elif update.message.photo:
+        photo_file_id = update.message.photo[-1].file_id
+        photo_caption = update.message.caption if update.message.caption else ""
+        context.bot.send_photo(
+            chat_id=answer_id,
+            photo=photo_file_id,
+            caption=f"Новый ответ от проверки:\n {photo_caption}"
+        )
+
+    List_Of_Students_Answers.pop(answer_id)
+    update.message.reply_text('Ваш ответ был успешно отправлен.')
+
+# Обработчик для статистики
+def get_bank(update: Update, context: CallbackContext) -> None:
+    if len(List_Of_Students_Statistics) != 0:
+        if List_Of_Students_Statistics[update.message.chat_id][1] != 0:
+            update.message.reply_text(f'Ваша статистика:\nПравильно выполнено: {List_Of_Students_Statistics[update.message.chat_id][0]}\n'
+                                      f'Всего выполнено: {List_Of_Students_Statistics[update.message.chat_id][1]}\n'
+                                      f'Процент правильных ответов: {round(List_Of_Students_Statistics[update.message.chat_id][0] / List_Of_Students_Statistics[update.message.chat_id][1] * 100, 2)}%')
+        else:
+            update.message.reply_text("Вы еще не начинали выполнять ни одного задания!")
+    else:
+        update.message.reply_text("Вы еще не начинали выполнять ни одного задания!")
+    context.user_data['awaiting_contact_message'] = False
+    start(update, context)
+
+# Обработчик команды проверки ввода
+def check_input(update: Update, context: CallbackContext) -> None:
+    answer = update.message.text
+    question = context.user_data.pop('input_question', None) or context.user_data.pop('text_question', None)
+    if not question:
+        return
+
+    if update.message.chat_id not in List_Of_Students_Statistics:
+        List_Of_Students_Statistics[update.message.chat_id] = [0, 0]
+    List_Of_Students_Statistics[update.message.chat_id][1] += 1
+    correct_answer = question['answer'].strip().lower()
+    user_answer = answer.strip().lower()
+    if user_answer == correct_answer:
+        response = '✅*Верно!*✅'
+        response += f"\n\n✍Твой ответ:\n\n{answer}"
+        List_Of_Students_Statistics[update.message.chat_id][0] += 1
+    else:
+        response = '❌*Неверно.*❌'
+        response += f"\n\n✍Твой ответ:\n\n{answer}"
+
+    response_message = (
+        f"{question['question']}\n\n{response}\n\n🟢*Правильный ответ*:🟢\n\n{question['answer']}"
+    )
+
+    if 'comment' in question:
+        response_message += f"\n\n{question['comment']}"
+
+    context.user_data.pop('input_question_active', None)
+    context.user_data.pop('text_question_active', None)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=response_message, parse_mode='Markdown')
+
 # Функция отправки тестового задания
 def send_test(update: Update, context: CallbackContext) -> None:
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его.")
-    #     return
-
     current_menu = context.user_data.get('current_menu')
     if not current_menu:
         update.message.reply_text('Пожалуйста, выберите категорию: ОГЭ или ЕГЭ')
@@ -122,37 +354,6 @@ def send_test(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("Произошла ошибка, попробуйте ещё раз.")
 
-# Обработчик команды проверки ввода
-def check_input(update: Update, context: CallbackContext) -> None:
-    answer = update.message.text
-    question = context.user_data.pop('input_question', None) or context.user_data.pop('text_question', None)
-    if not question:
-        return
-
-    if update.message.chat_id not in List_Of_Students_Statistics:
-        List_Of_Students_Statistics[update.message.chat_id] = [0, 0]
-    List_Of_Students_Statistics[update.message.chat_id][1] += 1
-    correct_answer = question['answer'].strip().lower()
-    user_answer = answer.strip().lower()
-    if user_answer == correct_answer:
-        response = '✅*Верно!*✅'
-        response += f"\n\n✍Твой ответ:\n\n{answer}"
-        List_Of_Students_Statistics[update.message.chat_id][0] += 1
-    else:
-        response = '❌*Неверно.*❌'
-        response += f"\n\n✍Твой ответ:\n\n{answer}"
-
-    response_message = (
-        f"{question['question']}\n\n{response}\n\n🟢*Правильный ответ*:🟢\n\n{question['answer']}"
-    )
-
-    if 'comment' in question:
-        response_message += f"\n\n{question['comment']}"
-
-    context.user_data.pop('input_question_active', None)
-    context.user_data.pop('text_question_active', None)
-
-    context.bot.send_message(chat_id=update.effective_chat.id, text=response_message, parse_mode='Markdown')
 
 # Обработчик ответа на тестовое задание
 def test_answer(update: Update, context: CallbackContext) -> None:
@@ -231,162 +432,3 @@ def test_answer(update: Update, context: CallbackContext) -> None:
     keyboard.append([InlineKeyboardButton("Проверить ответы", callback_data="submit")])
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_reply_markup(reply_markup)
-
-# обработчик команды Contact to support
-def contact_to_support(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его.")
-    #     return
-    if str(update.message.chat_id) == str(MY_CHAT_ID):
-        contact_support(update, context)
-    else:
-        context.user_data['current_menu'] = None
-        context.user_data['awaiting_contact_message'] = True
-        update.message.reply_text('Введите сообщение или загрузите фото, которое вы хотите отправить в поддержку:')
-
-# отдельный обработчик для поддержки
-def contact_support(update: Update, context: CallbackContext) -> None:
-    context.user_data['current_menu'] = None
-    context.user_data['awaiting_contact_message'] = True
-    if len(List_Of_Students_Answers) == 0:
-        update.message.reply_text("Пока нету доступных сообщений")
-        answer_id = -1
-        return
-    update.message.reply_text(f'Всего доступно сообщений: {len(List_Of_Students_Answers)}. \n Для проверки какого-то из них, напишите номер интересующей посылки.')
-    list_of_answers = ""
-    cnt = 1
-    for key, value in List_Of_Students_Answers.items():
-        list_of_answers += f'{cnt}. '
-        list_of_answers += List_Of_Students_Answers[key][:20] + "..."
-        list_of_answers += "\n"
-        cnt += 1
-    update.message.reply_text(list_of_answers)
-
-# Обработчик команды Contact
-def contact(update: Update, context: CallbackContext) -> None:
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его.")
-    #     return
-    if str(update.message.chat_id) == str(MY_CHAT_ID):
-        contact_teacher(update, context)
-    else:
-        context.user_data['current_menu'] = None
-        context.user_data['awaiting_contact_message'] = True
-        update.message.reply_text('Введите сообщение или загрузите фото, которое вы хотите отправить на проверку:')
-
-# Отдельный обработчик Contact для проверки
-def contact_teacher(update: Update, context: CallbackContext) -> None:
-    context.user_data['current_menu'] = None
-    context.user_data['awaiting_contact_message'] = True
-    if len(List_Of_Students_Answers) == 0:
-        update.message.reply_text("Пока нету доступных посылок")
-        answer_id = -1
-        return
-    update.message.reply_text(f'Всего доступно посылок: {len(List_Of_Students_Answers)}. \n Для проверки какого-то из них, напишите номер интересующей посылки.')
-    list_of_answers = ""
-    cnt = 1
-    for key, value in List_Of_Students_Answers.items():
-        list_of_answers += f'{cnt}. '
-        list_of_answers += List_Of_Students_Answers[key][:20] + "..."
-        list_of_answers += "\n"
-        cnt += 1
-    update.message.reply_text(list_of_answers)
-
-# Обработчик отправки сообщения учителю
-def forward_message_to_or_for_teacher(update: Update, context: CallbackContext) -> None:
-    if context.user_data.get('awaiting_contact_message', False):
-        if str(update.message.chat_id) == MY_CHAT_ID:
-            if update.message.text:
-                user_message = update.message.text
-                cnt = 1
-                global answer_id
-                answer_id = -1
-                for key, value in List_Of_Students_Answers.items():
-                    if cnt == int(user_message):
-                        answer_id = key
-                        break
-                    cnt += 1
-                update.message.reply_text(f'Ответ ученика: \n\n{List_Of_Students_Answers[answer_id]}')
-                update.message.reply_text("Напишите ответ или пришлите фото ответа")
-                context.user_data['awaiting_teacher_answer'] = True
-
-            context.user_data['awaiting_contact_message'] = False
-        else:
-            if update.message.text:
-                user_message = update.message.text
-                context.bot.send_message(
-                    chat_id=MY_CHAT_ID,
-                    text=f"Новое сообщение: {user_message[:20]}..."
-                )
-                List_Of_Students_Answers[update.message.chat_id] = user_message
-                update.message.reply_text('Ваше сообщение было успешно отправлено на проверку.')
-            elif update.message.photo:
-                photo_file_id = update.message.photo[-1].file_id
-                photo_caption = update.message.caption if update.message.caption else ""
-                context.bot.send_photo(
-                    chat_id=MY_CHAT_ID,
-                    photo=photo_file_id,
-                    caption=f"Новое фото: {photo_caption}"
-                )
-                List_Of_Students_Answers[update.message.chat_id] = "Фотография"
-                update.message.reply_text('Ваше фото было успешно отправлено на проверку.')
-
-            context.user_data['awaiting_contact_message'] = False
-    else:
-        if context.user_data.get("input_question_active"):
-            check_input(update, context)
-        elif context.user_data.get("awaiting_teacher_answer", False):
-            message_for_student(update, context)
-        elif context.user_data.get("text_question_active"):
-            check_input(update, context)
-        elif context.user_data.get("multichoice_question_active"):
-            check_input(update, context)
-        elif context.user_data.get("current_menu") in ["ОГЭ", "ЕГЭ"]:
-            send_test(update, context)
-        else:
-            update.message.reply_text(
-                "Сообщение не было отправлено на проверку и не является командой для выполнения теста."
-            )
-
-# Ответ ученику на его посылку
-def message_for_student(update: Update, context: CallbackContext) -> None:
-
-    if update.message.text:
-        user_message = update.message.text
-        context.bot.send_message(
-            chat_id=answer_id,
-            text=f"Новый ответ от проверки:\n {user_message}"
-        )
-    elif update.message.photo:
-        photo_file_id = update.message.photo[-1].file_id
-        photo_caption = update.message.caption if update.message.caption else ""
-        context.bot.send_photo(
-            chat_id=answer_id,
-            photo=photo_file_id,
-            caption=f"Новый ответ от проверки:\n {photo_caption}"
-        )
-
-    List_Of_Students_Answers.pop(answer_id)
-    update.message.reply_text('Ваш ответ был успешно отправлен.')
-
-# Обработчик для статистики
-def get_bank(update: Update, context: CallbackContext) -> None:
-
-    # Проверка незавершенных заданий
-    # if context.user_data.get('input_question_active') or context.user_data.get('text_question_active') or context.user_data.get('multichoice_question_active'):
-    #     update.message.reply_text("Вы не выполнили прошлое задание. Завершите его")
-    #     return
-
-    if len(List_Of_Students_Statistics) != 0:
-        if List_Of_Students_Statistics[update.message.chat_id][1] != 0:
-            update.message.reply_text(f'Ваша статистика:\nПравильно выполнено: {List_Of_Students_Statistics[update.message.chat_id][0]}\n'
-                                      f'Всего выполнено: {List_Of_Students_Statistics[update.message.chat_id][1]}\n'
-                                      f'Процент правильных ответов: {round(List_Of_Students_Statistics[update.message.chat_id][0] / List_Of_Students_Statistics[update.message.chat_id][1] * 100, 2)}%')
-        else:
-            update.message.reply_text("Вы еще не начинали выполнять ни одного задания!")
-    else:
-        update.message.reply_text("Вы еще не начинали выполнять ни одного задания!")
-    context.user_data['awaiting_contact_message'] = False
-    start(update, context)
