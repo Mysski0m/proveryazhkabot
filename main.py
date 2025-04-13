@@ -3,11 +3,13 @@ from functions import (start, target_menu, support_menu, main_menu, send_test,
                        get_bank)
 from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+import json
 
+with open("info.json", encoding="UTF-8") as file_in:
+    data = json.load(file_in)
 
-MY_CHAT_ID = ''
-
-TOKEN = ""
+MY_CHAT_ID = data["ADMIN_ID"]
+TOKEN = data["TOKEN"]
 
 def start_message(update: Update, context: CallbackContext):
     update.message.reply_text("Привет!")
