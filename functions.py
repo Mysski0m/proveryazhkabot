@@ -1,9 +1,12 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import CallbackContext
 from questions import ege_questions, oge_questions
-from main import MY_CHAT_ID
+import json
 
-# MY_CHAT_ID =   # ID пользователя, которому будет отправляться сообщение
+with open("info.json", encoding="UTF-8") as file_in:
+    data = json.load(file_in)
+
+MY_CHAT_ID = data["ADMIN_ID"]
 
 List_Of_Students_Answers = {}
 
